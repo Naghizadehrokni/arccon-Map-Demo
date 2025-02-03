@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICG-Map Demo with Project Info, Legend, and Search</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        .project-info-table td {
+    white-space: nowrap; /* Prevent line breaks within table cells */
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+}
+
+        /* Harmonized Color Theme */
+        :root {
+            --main-bg-color: #f5f5f5; /* Light background color */
+            --accent-color: #4a90e2; /* Accent color for highlights */
+            --border-color: #ccc; /* Subtle border color */
+            --text-color: #333; /* Primary text color */
+            --shadow-color: rgba(0, 0, 0, 0.2); /* Shadow color */
+        }
+
+        body { display: flex; margin: 0; font-family: Arial, sans-serif; }
+        #map { width: 100%; height: 100vh; position: relative; }
+
+        #search-box {
+            position: absolute;
+            top: 150px; /* Position under the logo */
+            left: 1.5cm;
+            z-index: 1000;
+            padding: 8px;
+            width: 300px;
+            border: 1px solid var(--border-color);
+            background-color: var(--main-bg-color);
+            color: var(--text-color);
+            font-size: 16px;
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 2px 5px var(--shadow-color); /* Subtle shadow */
+        }
+
+        #info-panel p {
+    text-align: center; /* Center-align the text */
+    font-size: 16px;
+    color: #666; /* Optional: Make the text color lighter for a subtle look */
+    margin-top: 20px; /* Add some space from the top */
+}
+
+        #info-panel h2 {
+    background: linear-gradient(135deg, #4a90e2, #6ec1e4);
+    color: #fff;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    margin: -15px -15px 15px -15px; /* Adjusts spacing within the info panel */
+}
+
+        #info-panel { 
+    width: 22%; 
+    padding: 15px; 
+    border-left: 1px solid #ccc; 
+    overflow-y: auto; 
+    display: none; /* Hidden initially */
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9); /* White background with 90% opacity */
+    z-index: 1000;
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Shadow effect */
+}
+
+
+        /* Close button styling */
+        #close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--accent-color);
+        }
+        
+
+        .logo-overlay { 
+            position: absolute; 
+            top: 10px; 
+            left: 1.5cm;
+            z-index: 1000;
+        }
+
+        .logo-overlay img { 
+            width: 306px;
+            height: auto; 
+        }
+
+        .project-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .project-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .project-info-table {
+            width: 100%;
+            max-width: 400px;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 16px;
+            color: var(--text-color);
+            background-color: #ffffff;
+        }
+
+        .project-info-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        .project-info-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .project-info-table td:first-child {
+            font-weight: bold;
+            width: 40%;
+            color: var(--text-color);
+        }
+
+       .legend { 
+    padding: 8px; 
+    background: rgba(255, 255, 255, 0.8); /* White background with 80% opacity */
+    border: 1px solid #ccc; 
+    border-radius: 5px;
+    position: absolute; 
+    bottom: 10px; 
+    left: 10px; 
+    z-index: 1000;
+    width: 180px;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Shadow effect */
+    
+}
+
+
+        .legend h4 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            display: inline-block;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Company logo overlay on the map -->
+    <div class="logo-overlay">
+        <img src="logo.jpg" alt="Company Logo">
+    </div>
+
+    <!-- Search Box -->
+    <input type="text" id="search-box" placeholder="🔍 Search projects...">
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- Information Panel, hidden initially -->
+    <div id="info-panel">
+        <span id="close-btn" onclick="document.getElementById('info-panel').style.display = 'none'">&times;</span>
+        <h2>Project Information</h2>
+        <p>Select a project on the map to view details here.</p>
+        <div id="project-details"></div>
+    </div>
+
+    <!-- Include Leaflet and PapaParse Libraries -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
+    <script>
+        // Initialize map centered on Düsseldorf
+        const map = L.map('map').setView([51.2277, 6.7735], 13);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+
+       // Define custom SVG icon styles for each category with unique colors, shapes, and slight shadows
+       const icons = {
+            "Gutachten": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <polygon points="12,2 2,22 22,22" fill="purple" />
+                       </svg>`,
+                iconSize: [24, 24]
+            }),
+            "Bergbau": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <rect width="18" height="18" x="3" y="3" fill="blue" />
+                       </svg>`,
+                iconSize: [24, 24]
+            }),
+            "Abeitsschutz": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <polygon points="12,2 2,12 12,22 22,12" fill="green" />
+                       </svg>`,
+                iconSize: [24, 24]
+            }),
+            "BIM": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <circle cx="12" cy="12" r="10" fill="red" />
+                       </svg>`,
+                iconSize: [24, 24]
+            }),
+            "Umwelt": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <polygon points="12,2 4,10 4,20 20,20 20,10" fill="orange" />
+                       </svg>`,
+                iconSize: [24, 24]
+            }),
+            "mehrere Leistungen": L.divIcon({
+                className: "custom-div-icon",
+                html: `<svg width="24" height="24" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));">
+                         <polygon points="12,2 14,9 22,9 16,13 18,21 12,17 6,21 8,13 2,9 10,9" fill="cyan" />
+                       </svg>`,
+                iconSize: [24, 24]
+            })
+        };
+
+        
+        // Define a global array to store all markers
+const markers = [];
+
+// Load CSV data and add markers to the map using '$' as the delimiter
+Papa.parse("icg_map_projects_project_info.csv", {
+    download: true,
+    header: true,
+    delimiter: "$", // Use '$' as the delimiter
+    complete: function(results) {
+        results.data.forEach(project => {
+            const lat = parseFloat(project.Latitude);
+            const lon = parseFloat(project.Longitude);
+            const category = project.Leistungen;
+
+            if (project.Projektnummer && !isNaN(lat) && !isNaN(lon) && icons[category]) {
+                const marker = L.marker([lat, lon], { icon: icons[category] }).addTo(map);
+
+                // Add click event to display project information in the info panel
+                marker.on('click', () => {
+                    document.getElementById('info-panel').style.display = "block";
+                    document.getElementById('project-details').innerHTML = `
+                        <div class="project-info">
+                            <img src="project-image-placeholder.jpg" alt="Project Image" class="project-image" />
+                            <table class="project-info-table">
+                                <tr><td><strong>📁 Projektnummer:</strong></td><td>${project.Projektnummer}</td></tr>
+                                <tr><td><strong>📍 Standort:</strong></td><td>${project.Standort}</td></tr>
+                                <tr><td><strong>📬 Adresse:</strong></td><td>${project.Adresse}</td></tr>
+                                <tr><td><strong>🏢 Auftraggeber:</strong></td><td>${project.Auftraggeber}</td></tr>
+                                <tr><td><strong>👷‍♂️ Bearbeiter:</strong></td><td>${project.Bearbeiter}</td></tr>
+                                <tr><td><strong>📝 Bezeichnung:</strong></td><td>${project.Projektbezeichnung}</td></tr>
+                                <tr><td><strong>🔨 Leistungen:</strong></td><td>${project.Leistungen}</td></tr>
+                            </table>
+                        </div>
+                    `;
+                });
+
+                marker.projectData = project; // Attach project data to the marker
+                markers.push(marker); // Store marker in the global array
+            } else {
+                console.error("Invalid or incomplete data for project:", project);
+            }
+        });
+    }
+});
+
+
+// Fix the search function to filter markers
+document.getElementById('search-box').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+
+    markers.forEach(marker => {
+        const project = marker.projectData;
+        const match = Object.values(project).some(value =>
+            value.toString().toLowerCase().includes(query)
+        );
+
+        if (match) {
+            marker.addTo(map); // Show marker if it matches the search query
+        } else {
+            map.removeLayer(marker); // Hide marker if it doesn't match
+        }
+    });
+});
+
+
+            
+        // Enhanced Legend with Custom Icons and Colors
+        const legend = L.control({ position: "bottomleft" });
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create("div", "legend");
+            div.innerHTML = "<h4>Legend</h4>";
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><polygon points="12,2 2,22 22,22" fill="purple"></polygon></svg> Gutachten</div>`;
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><rect width="18" height="18" x="3" y="3" fill="blue"></rect></svg> Bergbau</div>`;
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><polygon points="12,2 2,12 12,22 22,12" fill="green"></polygon></svg> Abeitsschutz</div>`;
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><circle cx="12" cy="12" r="10" fill="red"></circle></svg> BIM</div>`;
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><polygon points="12,2 4,10 4,20 20,20 20,10" fill="orange"></polygon></svg> Umwelt</div>`;
+            div.innerHTML += `<div class="legend-item"><svg width="20" height="20" viewBox="0 0 24 24" style="filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));"><polygon points="12,2 14,9 22,9 16,13 18,21 12,17 6,21 8,13 2,9 10,9" fill="cyan"></polygon></svg> mehrere Leistungen</div>`;
+            return div;
+        };
+        legend.addTo(map);
+
+        // Search functionality for filtering markers
+document.getElementById('search-box').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+
+    markers.forEach(marker => {
+        const project = marker.projectData;
+        const match = Object.values(project).some(value => 
+            value.toString().toLowerCase().includes(query)
+        );
+        
+        if (match) {
+            marker.addTo(map);
+        } else {
+            map.removeLayer(marker);
+        }
+    });
+});
+
+    </script>
+</body>
+</html>
